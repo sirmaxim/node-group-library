@@ -12,6 +12,8 @@ from bpy.app.handlers import persistent
 from bpy.props import StringProperty, BoolProperty
 from bpy.types import Panel, Operator
 
+import os
+
 #############
 # FUNCTIONS #
 #############
@@ -41,12 +43,15 @@ class NGLRefresh(Operator):
     bl_idname = "ngl.refresh"
     bl_description = "Relinks the nodes from the library file (saves and reloads)"
     
+    temp_path = bpy.utils.script_path_user() + os.sep + "NGL_TEMP_FILE.blend"
+    
     # A huge thanks to Pablo Vazquez
     # for the code from Amaranth (https://github.com/venomgfx/amaranth)
     
     def save_reload(self, context, path):
         if not path:
-            bpy.ops.wm.save_as_mainfile("INVOKE_AREA")
+            bpy.ops.wm.save_as_mainfile(filepath=self.temp_path)
+            bpy.ops.wm.open_mainfile(filepath=self.temp_path)
             return
         bpy.ops.wm.save_mainfile()
         self.report({"INFO"}, "Saved & Reloaded")
@@ -55,6 +60,11 @@ class NGLRefresh(Operator):
     def execute(self, context):
         path = bpy.data.filepath
         self.save_reload(context, path)
+        
+        # Remove temp file if necessary
+        if os.path.exists(self.temp_path):
+            os.remove(self.temp_path)
+        
         return {"FINISHED"}
 
         
@@ -79,23 +89,19 @@ class NGLSettings(bpy.types.AddonPreferences):
         
     def draw(self, context):
         layout = self.layout
-        
         self.library_path = bpy.path.abspath(self.library_path)
         
-        layout.prop(self, 'library_path')
         layout.prop(self, 'link')
+        layout.prop(self, 'library_path')
         layout.operator('ngl.refresh')
-        
-        layout.separator()
-        
-        layout.label(text="Make sure to save user settings for persistent Node Groups!", icon="ERROR")
         
  
 class NGLPanel(Panel):
     bl_label = "Node Group Library"
     bl_idname = "NGLibrary-panel"
     bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'UI'
+    bl_region_type = 'TOOLS'
+    bl_category = 'Group'
     
     def draw(self, context):
         layout = self.layout
